@@ -1,0 +1,13 @@
+{
+  "serverName": "canyon-pdf-mcp",
+  "serverUrl": "https://pdf.canyonai.io/mcp",
+  "description": "Paid PDF MCP for AI agents \u2014 generate vector PDFs from JSON/Markdown, scrape URLs to PDF, extract PDF text. Settles USDC on Base via x402.",
+  "tags": [
+    "pdf",
+    "x402",
+    "payment",
+    "agents",
+    "cloudflare-workers"
+  ],
+  "sourceUrl": "https://github.com/canyonai/canyon-pdf-mcp"
+}

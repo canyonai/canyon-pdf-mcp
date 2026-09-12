@@ -1,0 +1,7 @@
+PulseMCP Server Submission
+- Server: Canyon PDF Engine (canyon-pdf-mcp)
+- MCP URL: https://pdf.canyonai.io/mcp
+- Protocol: Streamable HTTP MCP (verified)
+- x402: Base USDC settlement (verified)
+- Registry: Also published at Official MCP Registry (pending)
+- Contact for expedited sync: hello@pulsemcp.com

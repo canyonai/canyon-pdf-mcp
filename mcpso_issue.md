@@ -1,0 +1,14 @@
+## Server Details
+- **Name:** Canyon PDF Engine
+- **Description:** Paid vector PDF suite for AI agents — generate reports, scrape URLs to PDF, extract PDF text. Gated by x402 on Base USDC. No API keys required.
+- **Server URL:** https://pdf.canyonai.io/mcp
+- **Homepage:** https://pdf.canyonai.io
+- **Transport:** Streamable HTTP MCP
+- **Tags:** pdf, x402, payment, agents, cloudflare-workers, base
+- **Features:**
+  - generate_pdf_report ($0.25 fast / $1.50 heavy) — vector PDFs from JSON or Markdown
+  - scrape_url_to_pdf ($0.50) — clean vector PDF from any public URL
+  - extract_pdf_text ($0.10) — structured text extraction from existing PDFs
+  - pdf_pricing (free) — current prices and settlement wallet
+- **Payment:** x402 v2 on Base USDC (eip155:8453), facilitator: https://facilitator.payai.network
+- **GitHub:** https://github.com/canyonai/canyon-pdf-mcp

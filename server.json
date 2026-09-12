@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.canyonai/canyon-pdf-mcp",
+  "title": "Canyon PDF Engine",
+  "description": "Paid PDF MCP for AI agents — generate vector PDFs from JSON/Markdown, scrape URLs to PDF, extract PDF text. Settles USDC on Base via x402. No API keys.",
+  "version": "1.1.0",
+  "websiteUrl": "https://pdf.canyonai.io",
+  "repository": {
+    "url": "https://github.com/canyonai/canyon-pdf-mcp",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://pdf.canyonai.io/mcp"
+    }
+  ]
+}
