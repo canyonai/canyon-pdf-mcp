@@ -1,0 +1,41 @@
+{
+  "name": "canyon-pdf-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paid MCP server on Cloudflare Workers — generate styled PDFs, store in R2, settle USDC via x402 on Base",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:paid": "node scripts/e2e-paid-test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@pdfme/common": "^6.1.12",
+    "@pdfme/generator": "^6.1.12",
+    "@pdfme/schemas": "^6.1.12",
+    "@x402/core": "^2.23.0",
+    "@x402/evm": "^2.23.0",
+    "@x402/extensions": "^2.23.0",
+    "@x402/hono": "^2.23.0",
+    "hono": "^4.9.0",
+    "pdf-lib": "^1.17.1",
+    "unpdf": "^1.8.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260820.1",
+    "@types/node": "^26.2.0",
+    "@x402/fetch": "^2.23.0",
+    "typescript": "^5.9.0",
+    "viem": "^2.55.19",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.30.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
