@@ -17,6 +17,12 @@ import { priceUsdForTier } from "./types/pricing";
 import { createX402McpMiddleware } from "./middleware/x402PaidMcp";
 import { createPdfMcpServer } from "./mcp/server";
 import { runSiteAudit } from "./services/auditService";
+import {
+  createMonitor,
+  deleteMonitor,
+  getMonitor,
+  runMonitorSweep,
+} from "./services/monitorService";
 import { generatePdfReport } from "./services/pdfService";
 import { SiteAuditInputSchema } from "./types/payload";
 import {
@@ -26,6 +32,7 @@ import {
 } from "./services/r2Service";
 import {
   buildRefundChallenge,
+  issueDownloadToken,
   issueFreeToken,
   verifyDownloadToken,
 } from "./services/refundService";
@@ -64,6 +71,13 @@ app.use(
 // Scanner / vulnerability probing safeguards (immediately after CORS)
 // ---------------------------------------------------------------------------
 
+app.use("*", async (c, next) => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.res.headers.set("X-Frame-Options", "DENY");
+  return;
+});
 app.use("*", async (c, next) => {
   const path = new URL(c.req.url).pathname.toLowerCase();
   if (
@@ -124,12 +138,14 @@ function serviceJson(env: Env) {
       scrape_url_to_pdf: `$${env.PRICE_SCRAPE || "0.50"}`,
       extract_pdf_text: `$${env.PRICE_EXTRACT || "0.10"}`,
       site_audit: `$${env.PRICE_AUDIT || "0.50"}`,
+      price_monitor: `$${env.PRICE_MONITOR || "1.00"} (30-day watch)`,
     },
     tools: [
       "generate_pdf_report",
       "scrape_url_to_pdf",
       "extract_pdf_text",
       "site_audit",
+      "price_monitor",
       "pdf_pricing",
     ],
     network: "eip155:8453",
@@ -207,6 +223,7 @@ app.get("/.well-known/mcp.json", (c) => {
         "scrape_url_to_pdf",
         "extract_pdf_text",
         "site_audit",
+        "price_monitor",
         "pdf_pricing",
       ],
     },
@@ -218,6 +235,7 @@ app.get("/.well-known/mcp.json", (c) => {
       scrape_url_to_pdf: c.env.PRICE_SCRAPE || "0.50",
       extract_pdf_text: c.env.PRICE_EXTRACT || "0.10",
       site_audit: c.env.PRICE_AUDIT || "0.50",
+      price_monitor: c.env.PRICE_MONITOR || "1.00",
       currency: "USDC",
     },
     payment: {
@@ -334,6 +352,11 @@ app.use("/api/generate", async (c, next) => {
 });
 
 app.use("/api/audit", async (c, next) => {
+  const mw = createX402McpMiddleware(c.env);
+  return mw(c, next);
+});
+
+app.use("/api/monitor", async (c, next) => {
   const mw = createX402McpMiddleware(c.env);
   return mw(c, next);
 });
@@ -493,6 +516,126 @@ app.post("/api/audit", async (c) => {
 });
 
 
+// ---------------------------------------------------------------------------
+// Price monitor — create ($1, x402-gated) · status/cancel (token-gated, free)
+// ---------------------------------------------------------------------------
+
+app.post("/api/monitor", async (c) => {
+  let body: unknown;
+  try {
+    body = c.get("mcpParsedBody") ?? (await c.req.json());
+  } catch {
+    return c.json({ success: false, error: "Invalid JSON body" }, 400);
+  }
+  const b = body as Record<string, unknown>;
+  const url = typeof b.url === "string" ? b.url : undefined;
+  const webhookUrl = typeof b.webhookUrl === "string" ? b.webhookUrl : undefined;
+  const label = typeof b.label === "string" ? b.label : undefined;
+  if (!url || !webhookUrl) {
+    return c.json(
+      { success: false, error: "Required fields: url (page to watch), webhookUrl (POST target)" },
+      400,
+    );
+  }
+  try {
+    // SSRF-check the target; webhook must be https
+    const { assertPublicHttpUrl } = await import("./services/ssrf");
+    assertPublicHttpUrl(url);
+    const hook = new URL(webhookUrl);
+    if (hook.protocol !== "https:") {
+      return c.json({ success: false, error: "webhookUrl must be https" }, 400);
+    }
+    const paymentBypassed = c.get("paymentBypassed") ?? false;
+    const priceUsd = c.get("chargedPriceUsd") ?? (c.env.PRICE_MONITOR || "1.00");
+    const txHash =
+      c.get("paymentTxHash") ??
+      `unknown_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+
+    const state = await createMonitor(c.env, { url, webhookUrl, label });
+
+    if (!paymentBypassed) {
+      c.executionCtx.waitUntil(
+        notifyDiscordX402Sale(c.env, {
+          mode: "monitor",
+          earnedUsd: priceUsd,
+          pdfUrl: url,
+          title: `Price monitor: ${label ?? url}`,
+          paymentTxHash: txHash,
+          toolName: "price_monitor",
+        }),
+      );
+    }
+
+    const token = await issueDownloadToken(c.env, {
+      key: state.id,
+      expiresAt: state.expiresAt,
+    });
+
+    return c.json(
+      {
+        success: true,
+        tool: "price_monitor",
+        id: state.id,
+        manageToken: token,
+        manageUrl: `${(c.env.PUBLIC_ORIGIN || "https://pdf.canyonai.io").replace(/\/+$/, "")}/api/monitor/${state.id}?token=${token}`,
+        url: state.url,
+        webhookUrl: state.webhookUrl,
+        expiresAt: new Date(state.expiresAt).toISOString(),
+        sweepInterval: "6h",
+        webhookSignature: "HMAC-SHA256 in X-Canyon-Signature header (hex)",
+        chargedUsd: paymentBypassed ? "0.00 (retryToken)" : priceUsd,
+        paymentTxHash: txHash,
+      },
+      200,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ success: false, error: "Monitor creation failed", details: message }, 500);
+  }
+});
+
+app.get("/api/monitor/:id", async (c) => {
+  const id = c.req.param("id");
+  const token = c.req.query("token");
+  if (!token) return c.json({ success: false, error: "token required" }, 401);
+  try {
+    const claims = await verifyDownloadToken(c.env, token);
+    if (claims.key !== id) return c.json({ success: false, error: "token mismatch" }, 403);
+  } catch {
+    return c.json({ success: false, error: "invalid or expired token" }, 403);
+  }
+  const state = await getMonitor(c.env, id);
+  if (!state) return c.json({ success: false, error: "monitor not found or expired" }, 404);
+  return c.json(
+    {
+      success: true,
+      id: state.id,
+      url: state.url,
+      label: state.label ?? null,
+      createdAt: new Date(state.createdAt).toISOString(),
+      expiresAt: new Date(state.expiresAt).toISOString(),
+      lastCheckedAt: state.lastCheckedAt ? new Date(state.lastCheckedAt).toISOString() : null,
+      lastPrice: state.lastPrice ?? null,
+      changes: state.history.map((h) => ({ at: new Date(h.at).toISOString(), price: h.price })),
+    },
+    200,
+  );
+});
+
+app.delete("/api/monitor/:id", async (c) => {
+  const id = c.req.param("id");
+  const token = c.req.query("token");
+  if (!token) return c.json({ success: false, error: "token required" }, 401);
+  try {
+    const claims = await verifyDownloadToken(c.env, token);
+    if (claims.key !== id) return c.json({ success: false, error: "token mismatch" }, 403);
+  } catch {
+    return c.json({ success: false, error: "invalid or expired token" }, 403);
+  }
+  const ok = await deleteMonitor(c.env, id);
+  return c.json({ success: ok, id }, ok ? 200 : 404);
+});
+
 app.post("/api/generate", async (c) => {
   let body: unknown;
   try {
@@ -601,4 +744,17 @@ app.post("/api/generate", async (c) => {
   }
 });
 
-export default app;
+// ---------------------------------------------------------------------------
+// Cron — price monitor sweep
+// ---------------------------------------------------------------------------
+
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      runMonitorSweep(env).then((r) =>
+        console.log(`[monitor] sweep: checked=${r.checked} notified=${r.notified}`),
+      ),
+    );
+  },
+};

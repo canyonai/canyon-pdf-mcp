@@ -23,7 +23,7 @@ export function buildX402WellKnown(env: Env) {
     version: 2,
     resource: origin,
     // x402scan simple-form compatibility (DISCOVERY.md spec B): version 1 + full-URL resources
-    resources: [`${origin}/mcp`, `${origin}/api/generate`, `${origin}/api/audit`],
+    resources: [`${origin}/mcp`, `${origin}/api/generate`, `${origin}/api/audit`, `${origin}/api/monitor`],
     instructions:
       "POST /mcp = MCP streamable-HTTP suite (tools: generate_pdf_report, scrape_url_to_pdf, extract_pdf_text, site_audit; pdf_pricing free). POST /api/generate = REST PDF generation. POST /api/audit = site tech/exposure audit. All return 402 with PAYMENT-REQUIRED header (x402 v2) and JSON body challenge.",
     description:
@@ -82,6 +82,7 @@ export function buildX402WellKnown(env: Env) {
               scrape_url_to_pdf: env.PRICE_SCRAPE || "0.50",
               extract_pdf_text: env.PRICE_EXTRACT || "0.10",
               site_audit: env.PRICE_AUDIT || "0.50",
+              price_monitor: env.PRICE_MONITOR || "1.00",
             },
             maxTimeoutSeconds: 300,
           },
@@ -134,6 +135,51 @@ export function buildX402WellKnown(env: Env) {
             payTo: env.SETTLEMENT_WALLET,
             asset: env.BASE_USDC_CONTRACT,
             prices: { fast: env.PRICE_STANDARD || "0.25", heavy: env.PRICE_HEAVY || "1.50" },
+          },
+        ],
+      },
+      {
+        url: `${origin}/api/monitor`,
+        method: "POST",
+        description:
+          "Price monitor: watch a public product/API page for 30 days; we poll every 6h and POST a signed webhook when the price changes. $1.00 per watch. Status/cancel via token. USDC on Base via x402.",
+        mimeType: "application/json",
+        outputSchema: {
+          input: {
+            type: "http",
+            method: "POST",
+            discoverable: true,
+            bodyType: "json",
+            schema: {
+              type: "object",
+              required: ["url", "webhookUrl"],
+              properties: {
+                url: { type: "string", format: "uri" },
+                webhookUrl: { type: "string", format: "uri", description: "https POST target for change events" },
+                label: { type: "string" },
+                retryToken: { type: "string" },
+              },
+            },
+          },
+          output: {
+            type: "json",
+            example: {
+              success: true,
+              tool: "price_monitor",
+              id: "<id>",
+              manageToken: "<token>",
+              expiresAt: "2026-10-24T00:00:00Z",
+              sweepInterval: "6h",
+            },
+          },
+        },
+        accepts: [
+          {
+            scheme: "exact",
+            network: "eip155:8453",
+            payTo: env.SETTLEMENT_WALLET,
+            asset: env.BASE_USDC_CONTRACT,
+            prices: { price_monitor: env.PRICE_MONITOR || "1.00" },
           },
         ],
       },

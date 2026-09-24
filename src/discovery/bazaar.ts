@@ -113,6 +113,7 @@ export function discoveryHelpPayload(env: Env) {
       scrape_url_to_pdf: `$${env.PRICE_SCRAPE || "0.50"}`,
       extract_pdf_text: `$${env.PRICE_EXTRACT || "0.10"}`,
       site_audit: `$${env.PRICE_AUDIT || "0.50"}`,
+      price_monitor: `$${env.PRICE_MONITOR || "1.00"} (30-day watch)`,
     },
     tools: [
       {
@@ -145,6 +146,14 @@ export function discoveryHelpPayload(env: Env) {
         transport: "streamable-http + REST /api/audit",
         description:
           "Technology-fingerprint and exposure audit for any public URL: tech stack, security headers, TLS posture, robots.txt, response time, script surface, exposure notes.",
+      },
+      {
+        name: "price_monitor",
+        paid: true,
+        price: `$${env.PRICE_MONITOR || "1.00"}`,
+        transport: "REST /api/monitor",
+        description:
+          "Watch a public product or API page for 30 days: polls every 6 hours and POSTs an HMAC-signed webhook when the price changes. Manage via returned token.",
       },
       {
         name: "pdf_pricing",

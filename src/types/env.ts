@@ -38,6 +38,9 @@ export type Env = {
   /** USD price for site_audit (e.g. "0.50") */
   PRICE_AUDIT: string;
 
+  /** USD price for price_monitor create (e.g. "1.00") — 30-day watch */
+  PRICE_MONITOR: string;
+
   /** Public Worker origin used when minting absolute download URLs */
   PUBLIC_ORIGIN: string;
 

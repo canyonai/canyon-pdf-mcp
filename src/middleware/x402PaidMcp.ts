@@ -146,6 +146,25 @@ export function createX402McpMiddleware(env: Env): MiddlewareHandler<{
       serviceName: meta.serviceName,
       tags: meta.tags,
     },
+    // Price monitor — create watch ($1, one-time)
+    "POST /api/monitor": {
+      accepts: {
+        scheme: "exact",
+        network: BASE_MAINNET,
+        payTo: env.SETTLEMENT_WALLET,
+        price: async () => dollarPriceForTier(env, "monitor"),
+        extra: {
+          name: "USDC",
+          version: "2",
+          asset: env.BASE_USDC_CONTRACT,
+        },
+      },
+      resource: `${publicOriginEnv(env)}/api/monitor`,
+      description: meta.description,
+      mimeType: "application/json",
+      serviceName: meta.serviceName,
+      tags: [...meta.tags, "monitoring", "price"],
+    },
     // REST twin
     "POST /api/audit": {
       accepts: {

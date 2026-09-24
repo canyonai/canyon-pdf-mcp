@@ -30,7 +30,7 @@ export type UploadResult = {
 
 export type DiscordSaleAlert = {
   /** Product tier label for the embed Mode field */
-  mode: "fast" | "heavy" | "scrape" | "extract" | "audit";
+  mode: "fast" | "heavy" | "scrape" | "extract" | "audit" | "monitor";
   /** USD amount charged (e.g. "0.25" or "1.50") — displayed as "$X.XX USDC" on Base */
   earnedUsd: string;
   /** Public / signed R2 download URL (or N/A for extract-only) */
@@ -110,7 +110,7 @@ export async function notifyDiscordX402Sale(
   }
 
   const modeLabel =
-    sale.mode === "audit"
+    sale.mode === "audit" || sale.mode === "monitor"
       ? "Audit"
       : sale.mode === "heavy"
       ? "Heavy"

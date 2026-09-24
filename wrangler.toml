@@ -1,0 +1,83 @@
+# Canyon PDF MCP — Cloudflare Worker
+# Domain: pdf.canyonai.io
+#
+# SETUP CHECKLIST
+# 1. Replace SETTLEMENT_WALLET with your Phantom EVM / Base wallet (must start with 0x).
+# 2. Set HMAC_SECRET via: wrangler secret put HMAC_SECRET
+# 3. Create the R2 bucket if needed: wrangler r2 bucket create pdf-bucket
+# 4. Optional public CDN base for R2 objects: set PUBLIC_R2_BASE_URL
+# 5. Point a custom domain / route at this Worker (pdf.canyonai.io)
+
+name = "canyon-pdf-mcp"
+
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ---- R2 Storage ----
+# Binding name used in code: env.PDF_BUCKET
+[[r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "pdf-bucket"
+
+# ---- Environment Variables ----
+# NOTE: Do NOT put private keys here. Settlement wallet is the *receiving* address only.
+[vars]
+# INSERT your Phantom EVM (Base) address here — must start with 0x
+SETTLEMENT_WALLET = "0x8de45d7ddeeb6134e647eff81384eb38e84dd802"
+
+# Base mainnet USDC (Circle)
+BASE_USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+# x402 facilitator (Base mainnet). PayAI supports eip155:8453.
+# Testnet-only alternative: https://x402.org/facilitator (Base Sepolia only)
+# CDP (needs API keys): https://api.cdp.coinbase.com/platform/v2/x402
+FACILITATOR_URL = "https://facilitator.payai.network"
+
+# Per-request USD prices settled in Base USDC via x402
+PRICE_STANDARD = "0.25"   # generate_pdf_report (fast)
+PRICE_HEAVY = "1.50"      # generate_pdf_report (heavy)
+PRICE_SCRAPE = "0.50"     # scrape_url_to_pdf
+PRICE_EXTRACT = "0.10"    # extract_pdf_text
+PRICE_AUDIT = "0.50"      # site_audit
+PRICE_MONITOR = "1.00"    # price_monitor (30-day watch)
+
+# Optional: public base URL for R2 objects if you attach a custom domain to the bucket.
+# Leave empty to use Worker-signed /download/:token URLs (24h HMAC expiry).
+PUBLIC_R2_BASE_URL = ""
+
+# Public origin used when constructing absolute download URLs
+PUBLIC_ORIGIN = "https://pdf.canyonai.io"
+
+# ---- Secrets (set via CLI, not committed) ----
+# HMAC_SECRET — used to sign retryToken / freeToken and download URLs
+#   wrangler secret put HMAC_SECRET
+#
+# DISCORD_WEBHOOK_URL — incoming webhook for x402 sale embeds (green alert)
+#   wrangler secret put DISCORD_WEBHOOK_URL
+#
+# Optional R2 S3 API credentials if you prefer native R2 pre-signed URLs instead of Worker tokens:
+#   wrangler secret put R2_ACCESS_KEY_ID
+#   wrangler secret put R2_SECRET_ACCESS_KEY
+#   wrangler secret put CF_ACCOUNT_ID
+
+# ---- CDP (Coinbase) Facilitator - dual-stack slots, fill later ----
+# Bazaar auto-indexing ONLY happens through CDP settlements (PayAI never indexes).
+# Dual-stack plan: keep PayAI for settlement, add CDP on discovery routes.
+# Get keys at https://portal.cdp.coinbase.com then:
+#   wrangler secret put CDP_API_KEY_NAME
+#   wrangler secret put CDP_API_KEY_PRIVATE
+# Then set CDP_FACILITATOR_URL var here:
+CDP_FACILITATOR_URL = ""   # e.g. https://api.cdp.coinbase.com/platform/v2/x402
+
+# Custom domain route (uncomment after DNS is configured in Cloudflare)
+# [[routes]]
+# pattern = "pdf.canyonai.io/*"
+# zone_name = "canyonai.io"
+
+[observability]
+enabled = true
+
+# ---- Cron: price monitor sweep every 6h ----
+[triggers]
+crons = ["0 */6 * * *"]

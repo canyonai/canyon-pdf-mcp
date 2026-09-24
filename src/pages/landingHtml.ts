@@ -6,6 +6,7 @@ export function renderLandingHtml(env: Env): string {
   const scrape = env.PRICE_SCRAPE || "0.50";
   const extract = env.PRICE_EXTRACT || "0.10";
   const audit = env.PRICE_AUDIT || "0.50";
+  const monitor = env.PRICE_MONITOR || "1.00";
   const mcpConfig = JSON.stringify(
     {
       mcpServers: {
@@ -111,6 +112,11 @@ export function renderLandingHtml(env: Env): string {
           <div class="price">$${audit} USDC</div>
           <p>Technology fingerprint and exposure audit for any public URL — stack detection, security headers, TLS posture, robots.txt, response time, script surface.</p>
         </article>
+        <article class="card">
+          <h3><code>price_monitor</code></h3>
+          <div class="price">$${monitor} USDC / 30d</div>
+          <p>Watches a public product or API page every 6 hours and POSTs an HMAC-signed webhook the moment the price moves. Manage and cancel with a token.</p>
+        </article>
       </div>
     </section>
 
@@ -133,7 +139,7 @@ export function renderLandingHtml(env: Env): string {
 
     <footer>
       Network <code>eip155:8453</code> · Asset USDC <code>${env.BASE_USDC_CONTRACT}</code> ·
-      Pay to <code>${env.SETTLEMENT_WALLET}</code> ·
+      Settlement address in <a href="${origin}/discovery">/discovery</a> ·
       <a href="https://canyonai.io/terms.html">Terms</a> ·
       <a href="https://canyonai.io/privacy.html">Privacy</a>
     </footer>

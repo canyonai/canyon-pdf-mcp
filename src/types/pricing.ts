@@ -1,7 +1,7 @@
 import type { Env } from "./env";
 
 /** Paid product tiers used by x402 pricing + retry tokens */
-export type PaidTier = "fast" | "heavy" | "scrape" | "extract" | "audit";
+export type PaidTier = "fast" | "heavy" | "scrape" | "extract" | "audit" | "monitor";
 
 export const PAID_MCP_TOOLS = [
   "generate_pdf_report",
@@ -26,6 +26,8 @@ export function priceUsdForTier(env: Env, tier: PaidTier): string {
       return env.PRICE_EXTRACT || "0.10";
     case "audit":
       return env.PRICE_AUDIT || "0.50";
+    case "monitor":
+      return env.PRICE_MONITOR || "1.00";
     case "fast":
     default:
       return env.PRICE_STANDARD;
@@ -58,6 +60,7 @@ export function resolvePaidTier(
   if (toolName === "scrape_url_to_pdf") return "scrape";
   if (toolName === "extract_pdf_text") return "extract";
   if (toolName === "site_audit") return "audit";
+  if (toolName === "price_monitor") return "monitor";
   if (toolName === "generate_pdf_report") {
     return args?.mode === "heavy" ? "heavy" : "fast";
   }
